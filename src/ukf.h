@@ -4,8 +4,9 @@
 #include "Eigen/Dense"
 #include "measurement_package.h"
 
-class UKF {
- public:
+class UKF
+{
+public:
   /**
    * Constructor
    */
@@ -15,6 +16,18 @@ class UKF {
    * Destructor
    */
   virtual ~UKF();
+
+  /**
+   * GenerateSigmaPoints
+   * @brief Generates sigma points based on posteior distribution(x_ and P_)
+   */
+  void GenerateSigmaPoints();
+
+  /**
+   * GenerateAugmentedSigmaPoints
+   * @brief Generates augmented sigma points based on x_aug_ and P_aug_
+   */
+  void GenerateAugmentedSigmaPoints();
 
   /**
    * ProcessMeasurement
@@ -41,7 +54,6 @@ class UKF {
    */
   void UpdateRadar(MeasurementPackage meas_package);
 
-
   // initially set to false, set to true in first call of ProcessMeasurement
   bool is_initialized_;
 
@@ -54,8 +66,20 @@ class UKF {
   // state vector: [pos1 pos2 vel_abs yaw_angle yaw_rate] in SI units and rad
   Eigen::VectorXd x_;
 
+  // augmented state vector: [pos1 pos2 vel_abs yaw_angle yaw_rate std_a std_yawdd] in SI units and rad
+  Eigen::VectorXd x_aug_;
+
   // state covariance matrix
   Eigen::MatrixXd P_;
+
+  // augmented state covariance matrix
+  Eigen::MatrixXd P_aug_;
+
+  // sigma point matrix
+  Eigen::MatrixXd Xsigma_;
+
+  // augmented sigma point matrix
+  Eigen::MatrixXd Xsigma_aug_;
 
   // predicted sigma points matrix
   Eigen::MatrixXd Xsig_pred_;
@@ -82,7 +106,7 @@ class UKF {
   double std_radphi_;
 
   // Radar measurement noise standard deviation radius change in m/s
-  double std_radrd_ ;
+  double std_radrd_;
 
   // Weights of sigma points
   Eigen::VectorXd weights_;
@@ -95,6 +119,9 @@ class UKF {
 
   // Sigma point spreading parameter
   double lambda_;
+
+  // Augmented sigma point spreading parameter
+  double lambda_aug_;
 };
 
-#endif  // UKF_H
+#endif // UKF_H
