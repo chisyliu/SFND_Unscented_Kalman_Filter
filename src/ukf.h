@@ -61,6 +61,24 @@ public:
   void TransformSigmaPointsToRadarSpace();
 
   /**
+   * PredictRadarMeanState
+   * @brief Predict Radar measurement mean state
+   */
+  void PredictRadarMeanState();
+
+  /**
+   * PredictRadarMeasurement
+   * @brief Predict Radar measurement covariance matrix
+   */
+  void PredictRadarCovariance();
+
+  /**
+   * PredictRadarMeasurement
+   * @brief Predict Radar measurement with sigma points in radar measurement space
+   */
+  void PredictRadarMeasurement();
+
+  /**
    * ProcessLidarMeasurement
    * @brief Process predicted sigma points into Lidar measurement space
    */
@@ -105,6 +123,9 @@ public:
 
   // augmented state vector: [pos_x pos_y vel_abs yaw_angle yaw_rate std_a std_yawdd] in SI units and rad
   Eigen::VectorXd x_aug_;
+
+  // predicted radar measurement : [tho phi tho_d]
+  Eigen::VectorXd z_radar_pred_;
 
   // state covariance matrix
   Eigen::MatrixXd P_;

@@ -18,7 +18,7 @@ UKF::UKF()
   n_aug_ = 7;
 
   // Radar measurement dimension
-  int n_z_radar_ = 3;
+  n_z_radar_ = 3;
 
   // Sigma point spreading parameter
   lambda_ = 3 - n_x_;
@@ -37,6 +37,9 @@ UKF::UKF()
 
   // initial augmented state vector
   x_aug_ = VectorXd(n_aug_);
+
+  // initial predicted radar measurement
+  z_radar_pred_ = VectorXd(n_z_radar_);
 
   // initial covariance matrix
   P_ = MatrixXd(n_x_, n_x_);
@@ -246,6 +249,28 @@ void UKF::TransformSigmaPointsToRadarSpace()
   }
 }
 
+void UKF::PredictRadarMeanState()
+{
+  // Predict mean state
+  VectorXd z_pred = VectorXd(n_z_radar_);
+  z_pred.fill(0.0);
+  for (int i = 0; i < weights_.size(); ++i)
+  {
+    z_pred += weights_(i) * Zsigma_radar_.col(i);
+  }
+  z_radar_pred_ = z_pred;
+}
+
+void UKF::PredictRadarCovariance()
+{
+}
+
+void UKF::PredictRadarMeasurement()
+{
+  PredictRadarMeanState();
+  PredictRadarCovariance();
+}
+
 void UKF::ProcessLidarMeasurement() {}
 
 void UKF::ProcessMeasurement(MeasurementPackage &meas_package)
@@ -260,6 +285,7 @@ void UKF::ProcessMeasurement(MeasurementPackage &meas_package)
   else if (meas_package.sensor_type_ == MeasurementPackage::RADAR)
   {
     TransformSigmaPointsToRadarSpace();
+    PredictRadarMeasurement();
   }
   else
   {
