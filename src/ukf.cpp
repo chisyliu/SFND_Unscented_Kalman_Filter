@@ -65,6 +65,9 @@ UKF::UKF()
   // initial radar measurement sigma points matrix
   Zsigma_radar_ = MatrixXd(n_z_radar_, Xsigma_pred_.cols());
 
+  // initial lidar measurement sigma points matrix
+  Zsigma_lidar_ = MatrixXd(n_z_lidar_, Xsigma_pred_.cols());
+
   // Process noise standard deviation longitudinal acceleration in m/s^2
   std_a_ = 30;
 
@@ -270,6 +273,20 @@ void UKF::TransformSigmaPointsToRadarSpace()
   }
 }
 
+void UKF::TransformSigmaPointsToLidarSpace()
+{
+  for (int i = 0; i < Xsigma_pred_.cols(); i++)
+  {
+    // Read needed sigma point info
+    double pos_x = Xsigma_pred_(0, i);
+    double pos_y = Xsigma_pred_(1, i);
+
+    // Write transformed sigma point
+    Zsigma_lidar_(0, i) = pos_x;
+    Zsigma_lidar_(1, i) = pos_y;
+  }
+}
+
 void UKF::PredictRadarMeanState()
 {
   VectorXd z_pred = VectorXd(n_z_radar_);
@@ -325,6 +342,7 @@ void UKF::ProcessMeasurement(MeasurementPackage &meas_package)
    */
   if (meas_package.sensor_type_ == MeasurementPackage::LASER)
   {
+    TransformSigmaPointsToLidarSpace();
   }
   else if (meas_package.sensor_type_ == MeasurementPackage::RADAR)
   {

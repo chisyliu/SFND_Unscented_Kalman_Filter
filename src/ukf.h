@@ -67,6 +67,12 @@ public:
   void TransformSigmaPointsToRadarSpace();
 
   /**
+   * TransformSigmaPointsToLidarSpace
+   * @brief Transform predicted sigma points into Lidar measurement space
+   */
+  void TransformSigmaPointsToLidarSpace();
+
+  /**
    * PredictRadarMeanState
    * @brief Predict Radar measurement mean state
    */
@@ -159,6 +165,9 @@ public:
 
   // radar measurement sigma points matrix
   Eigen::MatrixXd Zsigma_radar_;
+
+  // lidar measurement sigma points matrix
+  Eigen::MatrixXd Zsigma_lidar_;
 
   // time when the state is true, in us
   long long time_us_;
