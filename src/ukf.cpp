@@ -17,6 +17,9 @@ UKF::UKF()
   // Augmented state dimension
   n_aug_ = 7;
 
+  // Radar measurement dimension
+  int n_z_radar_ = 3;
+
   // Sigma point spreading parameter
   lambda_ = 3 - n_x_;
 
@@ -49,6 +52,9 @@ UKF::UKF()
 
   // initial predicted sigma point matrix
   Xsigma_pred_ = MatrixXd(n_x_, 2 * n_aug_ + 1);
+
+  // initial radar measurement sigma points matrix
+  Zsigma_radar_ = MatrixXd(n_z_radar_, Xsigma_pred_.cols());
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
   std_a_ = 30;
@@ -215,12 +221,50 @@ void UKF::PredictCovarianceMatrix()
   P_ = P_pred;
 }
 
-void UKF::ProcessMeasurement(MeasurementPackage meas_package)
+void UKF::TransformSigmaPointsToRadarSpace()
+{
+  for (int i = 0; i < Xsigma_pred_.cols(); i++)
+  {
+    // Read needed sigma point info
+    double pos_x = Xsigma_pred_(0, i);
+    double pos_y = Xsigma_pred_(1, i);
+    double vel_abs = Xsigma_pred_(2, i);
+    double yaw_angle = Xsigma_pred_(3, i);
+
+    double v_x = vel_abs * std::cos(yaw_angle);
+    double v_y = vel_abs * std::sin(yaw_angle);
+
+    // Transform sigma point into measurement space
+    double tho = std::sqrt(pos_x * pos_x + pos_y * pos_y);
+    double phi = std::atan2(pos_y, pos_x);
+    double tho_d = (pos_x * v_x + pos_y * v_y) / std::sqrt(pos_x * pos_x + pos_y * pos_y);
+
+    // Write transformed sigma point
+    Zsigma_radar_(0, i) = tho;
+    Zsigma_radar_(1, i) = phi;
+    Zsigma_radar_(2, i) = tho_d;
+  }
+}
+
+void UKF::ProcessLidarMeasurement() {}
+
+void UKF::ProcessMeasurement(MeasurementPackage &meas_package)
 {
   /**
    * TODO: Complete this function! Make sure you switch between lidar and radar
    * measurements.
    */
+  if (meas_package.sensor_type_ == MeasurementPackage::LASER)
+  {
+  }
+  else if (meas_package.sensor_type_ == MeasurementPackage::RADAR)
+  {
+    TransformSigmaPointsToRadarSpace();
+  }
+  else
+  {
+    std::cout << "Unknown sensor type!" << std::endl;
+  }
 }
 
 void UKF::Prediction(double dt)

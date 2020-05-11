@@ -3,6 +3,7 @@
 
 #include "Eigen/Dense"
 #include "measurement_package.h"
+#include <iostream>
 
 class UKF
 {
@@ -54,10 +55,22 @@ public:
   void PredictCovarianceMatrix();
 
   /**
+   * TransformSigmaPointsToRadarSpace
+   * @brief Transform predicted sigma points into Radar measurement space
+   */
+  void TransformSigmaPointsToRadarSpace();
+
+  /**
+   * ProcessLidarMeasurement
+   * @brief Process predicted sigma points into Lidar measurement space
+   */
+  void ProcessLidarMeasurement();
+
+  /**
    * ProcessMeasurement
    * @param meas_package The latest measurement data of either radar or laser
    */
-  void ProcessMeasurement(MeasurementPackage meas_package);
+  void ProcessMeasurement(MeasurementPackage &meas_package);
 
   /**
    * Prediction Predicts sigma points, the state, and the state covariance
@@ -108,6 +121,9 @@ public:
   // predicted sigma points matrix
   Eigen::MatrixXd Xsigma_pred_;
 
+  // radar measurement sigma points matrix
+  Eigen::MatrixXd Zsigma_radar_;
+
   // time when the state is true, in us
   long long time_us_;
 
@@ -140,6 +156,9 @@ public:
 
   // Augmented state dimension
   int n_aug_;
+
+  // Radar measurement dimension
+  int n_z_radar_;
 
   // Sigma point spreading parameter
   double lambda_;
