@@ -79,9 +79,21 @@ UKF::UKF()
   /**
    * End DO NOT MODIFY section for measurement noise values
    */
+
+  GenerateWeights();
 }
 
 UKF::~UKF() {}
+
+void UKF::GenerateWeights()
+{
+  weights_ = VectorXd(2 * n_aug_ + 1);
+  weights_(0) = lambda_aug_ / (lambda_aug_ + n_aug_);
+  for (int i = 1; i < weights_.size(); i++)
+  {
+    weights_(i) = 1.0 / (2 * (lambda_aug_ + n_aug_));
+  }
+}
 
 void UKF::GenerateSigmaPoints()
 {
@@ -153,11 +165,11 @@ void UKF::PredictSigmaPoints(const double dt)
     yaw_rate_pred = yaw_rate;
 
     // Add noise
-    pos_x_pred = pos_x_pred + 0.5 * dt * dt * std::cos(yaw_angle) * std_a;
-    pos_y_pred = pos_y_pred + 0.5 * dt * dt * sin(yaw_angle) * std_a;
-    vel_abs_pred = vel_abs_pred + std_a * dt;
-    yaw_angle_pred = yaw_angle_pred + 0.5 * dt * dt * std_yawdd;
-    yaw_rate_pred = yaw_rate_pred + std_yawdd * dt;
+    pos_x_pred += 0.5 * dt * dt * std::cos(yaw_angle) * std_a;
+    pos_y_pred += 0.5 * dt * dt * sin(yaw_angle) * std_a;
+    vel_abs_pred += std_a * dt;
+    yaw_angle_pred += 0.5 * dt * dt * std_yawdd;
+    yaw_rate_pred += std_yawdd * dt;
 
     // Write the predicted sigma point
     Xsigma_pred_(0, i) = pos_x_pred;
@@ -166,6 +178,41 @@ void UKF::PredictSigmaPoints(const double dt)
     Xsigma_pred_(3, i) = yaw_angle_pred;
     Xsigma_pred_(4, i) = yaw_rate_pred;
   }
+}
+
+void UKF::PredictMeanState()
+{
+  VectorXd x_pred = VectorXd(n_x_);
+  x_pred.fill(0.0);
+  for (int i = 0; i < weights_.size(); i++)
+  {
+    x_pred += weights_(i) * Xsigma_pred_.col(i);
+  }
+  x_ = x_pred;
+}
+
+void UKF::PredictCovarianceMatrix()
+{
+  MatrixXd P_pred = MatrixXd(n_x_, n_x_);
+  P_pred.fill(0.0);
+  VectorXd x_diff;
+  for (int i = 0; i < weights_.size(); i++)
+  {
+    x_diff = Xsigma_pred_.col(i) - x_;
+
+    // Normalize yaw angle
+    while (x_diff(3) > M_PI)
+    {
+      x_diff(3) -= 2. * M_PI;
+    }
+    while (x_diff(3) < -M_PI)
+    {
+      x_diff(3) += 2. * M_PI;
+    }
+
+    P_pred += weights_(i) * (x_diff) * (x_diff).transpose();
+  }
+  P_ = P_pred;
 }
 
 void UKF::ProcessMeasurement(MeasurementPackage meas_package)
@@ -186,6 +233,9 @@ void UKF::Prediction(double dt)
 
   GenerateSigmaPoints();
   GenerateAugmentedSigmaPoints();
+  PredictSigmaPoints(dt);
+  PredictMeanState();
+  PredictCovarianceMatrix();
 }
 
 void UKF::UpdateLidar(MeasurementPackage meas_package)
