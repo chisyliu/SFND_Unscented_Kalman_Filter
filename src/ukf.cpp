@@ -373,8 +373,6 @@ void UKF::PredictLidarMeasurement()
   PredictLidarCovariance();
 }
 
-void UKF::ProcessLidarMeasurement() {}
-
 void UKF::ProcessMeasurement(MeasurementPackage &meas_package)
 {
   /**

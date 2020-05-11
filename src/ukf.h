@@ -109,12 +109,6 @@ public:
   void PredictLidarMeasurement();
 
   /**
-   * ProcessLidarMeasurement
-   * @brief Process predicted sigma points into Lidar measurement space
-   */
-  void ProcessLidarMeasurement();
-
-  /**
    * ProcessMeasurement
    * @param meas_package The latest measurement data of either radar or laser
    */
