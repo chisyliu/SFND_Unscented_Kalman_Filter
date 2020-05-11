@@ -51,7 +51,7 @@ UKF::UKF()
   P_aug_ = MatrixXd(n_aug_, n_aug_);
 
   // initial predicted radar measurement covariance matrix
-  // S_radar_pred_ = MatrixXd(z_radar_pred_, z_radar_pred_);
+  S_radar_pred_ = MatrixXd(n_z_radar_, n_z_radar_);
 
   // initial sigma point matrix
   Xsigma_ = MatrixXd(n_x_, 2 * n_x_ + 1);
@@ -281,38 +281,38 @@ void UKF::PredictRadarMeanState()
   z_radar_pred_ = z_pred;
 }
 
-// void UKF::PredictRadarCovariance()
-// {
-//   MatrixXd S_radar_pred = MatrixXd(n_z_radar_, n_z_radar_);
-//   S_radar_pred.fill(0.0);
-//   VectorXd z_diff;
-//   for (int i = 0; i < weights_.size(); i++)
-//   {
-//     z_diff = Zsigma_radar_.col(i) - z_radar_pred_;
+void UKF::PredictRadarCovariance()
+{
+    MatrixXd S_radar_pred = MatrixXd(n_z_radar_, n_z_radar_);
+    S_radar_pred.fill(0.0);
+    VectorXd z_diff;
+    for (int i = 0; i < weights_.size(); i++)
+    {
+      z_diff = Zsigma_radar_.col(i) - z_radar_pred_;
 
-//     // Normalize yaw angle
-//     while (z_diff(1) > M_PI)
-//     {
-//       z_diff(1) -= 2. * M_PI;
-//     }
-//     while (z_diff(1) < -M_PI)
-//     {
-//       z_diff(1) += 2. * M_PI;
-//     }
+      // Normalize yaw angle
+      while (z_diff(1) > M_PI)
+      {
+        z_diff(1) -= 2. * M_PI;
+      }
+      while (z_diff(1) < -M_PI)
+      {
+        z_diff(1) += 2. * M_PI;
+      }
 
-//     S_radar_pred += weights_(i) * (z_diff) * (z_diff).transpose();
-//   }
+      S_radar_pred += weights_(i) * (z_diff) * (z_diff).transpose();
+    }
 
-//   // Add measurement noise
-//   S_radar_pred += R_radar_;
+    // Add measurement noise
+    S_radar_pred += R_radar_;
 
-//   S_radar_pred_ = S_radar_pred;
-// }
+    S_radar_pred_ = S_radar_pred;
+}
 
 void UKF::PredictRadarMeasurement()
 {
   PredictRadarMeanState();
-  // PredictRadarCovariance();
+  PredictRadarCovariance();
 }
 
 void UKF::ProcessLidarMeasurement() {}

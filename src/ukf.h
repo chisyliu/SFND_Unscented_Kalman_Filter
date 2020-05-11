@@ -76,7 +76,7 @@ public:
    * PredictRadarMeasurement
    * @brief Predict Radar measurement covariance matrix
    */
-  // void PredictRadarCovariance();
+  void PredictRadarCovariance();
 
   /**
    * PredictRadarMeasurement
