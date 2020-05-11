@@ -44,6 +44,9 @@ UKF::UKF()
   // initial predicted radar measurement
   z_radar_pred_ = VectorXd(n_z_radar_);
 
+  // initial predicted radar measurement
+  z_lidar_pred_ = VectorXd(n_z_lidar_);
+
   // initial covariance matrix
   P_ = MatrixXd(n_x_, n_x_);
 
@@ -298,38 +301,55 @@ void UKF::PredictRadarMeanState()
   z_radar_pred_ = z_pred;
 }
 
+void UKF::PredictLidarMeanState()
+{
+  VectorXd z_pred = VectorXd(n_z_lidar_);
+  z_pred.fill(0.0);
+  for (int i = 0; i < weights_.size(); ++i)
+  {
+    z_pred += weights_(i) * Zsigma_lidar_.col(i);
+  }
+  z_lidar_pred_ = z_pred;
+}
+
 void UKF::PredictRadarCovariance()
 {
-    MatrixXd S_radar_pred = MatrixXd(n_z_radar_, n_z_radar_);
-    S_radar_pred.fill(0.0);
-    VectorXd z_diff;
-    for (int i = 0; i < weights_.size(); i++)
+  MatrixXd S_radar_pred = MatrixXd(n_z_radar_, n_z_radar_);
+  S_radar_pred.fill(0.0);
+  VectorXd z_diff;
+  for (int i = 0; i < weights_.size(); i++)
+  {
+    z_diff = Zsigma_radar_.col(i) - z_radar_pred_;
+
+    // Normalize yaw angle
+    while (z_diff(1) > M_PI)
     {
-      z_diff = Zsigma_radar_.col(i) - z_radar_pred_;
-
-      // Normalize yaw angle
-      while (z_diff(1) > M_PI)
-      {
-        z_diff(1) -= 2. * M_PI;
-      }
-      while (z_diff(1) < -M_PI)
-      {
-        z_diff(1) += 2. * M_PI;
-      }
-
-      S_radar_pred += weights_(i) * (z_diff) * (z_diff).transpose();
+      z_diff(1) -= 2. * M_PI;
+    }
+    while (z_diff(1) < -M_PI)
+    {
+      z_diff(1) += 2. * M_PI;
     }
 
-    // Add measurement noise
-    S_radar_pred += R_radar_;
+    S_radar_pred += weights_(i) * (z_diff) * (z_diff).transpose();
+  }
 
-    S_radar_pred_ = S_radar_pred;
+  // Add measurement noise
+  S_radar_pred += R_radar_;
+
+  S_radar_pred_ = S_radar_pred;
 }
 
 void UKF::PredictRadarMeasurement()
 {
   PredictRadarMeanState();
   PredictRadarCovariance();
+}
+
+void UKF::PredictLidarMeasurement()
+{
+  PredictLidarMeanState();
+  // PredictLidarCovariance();
 }
 
 void UKF::ProcessLidarMeasurement() {}
@@ -343,6 +363,7 @@ void UKF::ProcessMeasurement(MeasurementPackage &meas_package)
   if (meas_package.sensor_type_ == MeasurementPackage::LASER)
   {
     TransformSigmaPointsToLidarSpace();
+    PredictLidarMeasurement();
   }
   else if (meas_package.sensor_type_ == MeasurementPackage::RADAR)
   {

@@ -79,7 +79,13 @@ public:
   void PredictRadarMeanState();
 
   /**
-   * PredictRadarMeasurement
+   * PredictLidarMeanState
+   * @brief Predict Lidar measurement mean state
+   */
+  void PredictLidarMeanState();
+
+  /**
+   * PredictRadarCovariance
    * @brief Predict Radar measurement covariance matrix
    */
   void PredictRadarCovariance();
@@ -89,6 +95,12 @@ public:
    * @brief Predict Radar measurement with sigma points in radar measurement space
    */
   void PredictRadarMeasurement();
+
+  /**
+   * PredictLidarMeasurement
+   * @brief Predict Lidar measurement with sigma points in radar measurement space
+   */
+  void PredictLidarMeasurement();
 
   /**
    * ProcessLidarMeasurement
@@ -138,6 +150,9 @@ public:
 
   // predicted radar measurement : [tho phi tho_d]
   Eigen::VectorXd z_radar_pred_;
+
+  // predicted lidar measurement : [pos_x pos_y]
+  Eigen::VectorXd z_lidar_pred_;
 
   // state covariance matrix
   Eigen::MatrixXd P_;
