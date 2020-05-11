@@ -56,6 +56,9 @@ UKF::UKF()
   // initial predicted radar measurement covariance matrix
   S_radar_pred_ = MatrixXd(n_z_radar_, n_z_radar_);
 
+  // initial predicted lidar measurement covariance matrix
+  S_lidar_pred_ = MatrixXd(n_z_lidar_, n_z_lidar_);
+
   // initial sigma point matrix
   Xsigma_ = MatrixXd(n_x_, 2 * n_x_ + 1);
 
@@ -340,6 +343,24 @@ void UKF::PredictRadarCovariance()
   S_radar_pred_ = S_radar_pred;
 }
 
+void UKF::PredictLidarCovariance()
+{
+  MatrixXd S_lidar_pred = MatrixXd(n_z_lidar_, n_z_lidar_);
+  S_lidar_pred.fill(0.0);
+  VectorXd z_diff;
+  for (int i = 0; i < weights_.size(); i++)
+  {
+    z_diff = Zsigma_lidar_.col(i) - z_lidar_pred_;
+
+    S_lidar_pred += weights_(i) * (z_diff) * (z_diff).transpose();
+  }
+
+  // Add measurement noise
+  S_lidar_pred += R_lidar_;
+
+  S_lidar_pred_ = S_lidar_pred;
+}
+
 void UKF::PredictRadarMeasurement()
 {
   PredictRadarMeanState();
@@ -349,7 +370,7 @@ void UKF::PredictRadarMeasurement()
 void UKF::PredictLidarMeasurement()
 {
   PredictLidarMeanState();
-  // PredictLidarCovariance();
+  PredictLidarCovariance();
 }
 
 void UKF::ProcessLidarMeasurement() {}

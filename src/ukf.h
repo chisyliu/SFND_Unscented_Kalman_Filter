@@ -91,6 +91,12 @@ public:
   void PredictRadarCovariance();
 
   /**
+   * PredictLidarCovariance
+   * @brief Predict Lidar measurement covariance matrix
+   */
+  void PredictLidarCovariance();
+
+  /**
    * PredictRadarMeasurement
    * @brief Predict Radar measurement with sigma points in radar measurement space
    */
@@ -162,6 +168,9 @@ public:
 
   // predicted radar measurement covariance matrix
   Eigen::MatrixXd S_radar_pred_;
+
+  // predicted lidar measurement covariance matrix
+  Eigen::MatrixXd S_lidar_pred_;
 
   // radar measurement noise covariance matrix
   Eigen::MatrixXd R_radar_;
