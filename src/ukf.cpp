@@ -20,6 +20,9 @@ UKF::UKF()
   // Radar measurement dimension
   n_z_radar_ = 3;
 
+  // Lidar measurement dimension
+  n_z_lidar_ = 2;
+
   // Sigma point spreading parameter
   lambda_ = 3 - n_x_;
 
@@ -46,6 +49,9 @@ UKF::UKF()
 
   // initial augmented covariance matrix
   P_aug_ = MatrixXd(n_aug_, n_aug_);
+
+  // initial predicted radar measurement covariance matrix
+  // S_radar_pred_ = MatrixXd(z_radar_pred_, z_radar_pred_);
 
   // initial sigma point matrix
   Xsigma_ = MatrixXd(n_x_, 2 * n_x_ + 1);
@@ -90,6 +96,7 @@ UKF::UKF()
    */
 
   GenerateWeights();
+  GenerateMeasurementNoiseCovarianceMatrices();
 }
 
 UKF::~UKF() {}
@@ -102,6 +109,20 @@ void UKF::GenerateWeights()
   {
     weights_(i) = 1.0 / (2 * (lambda_aug_ + n_aug_));
   }
+}
+
+void UKF::GenerateMeasurementNoiseCovarianceMatrices()
+{
+  // Generate noise covariance matrix for Radar
+  R_radar_ = MatrixXd(n_z_radar_, n_z_radar_);
+  R_radar_ << std_radr_ * std_radr_, 0, 0,
+      0, std_radphi_ * std_radphi_, 0,
+      0, 0, std_radrd_ * std_radrd_;
+
+  // Generate noise covariance matrix for Lidar
+  R_lidar_ = MatrixXd(n_z_lidar_, n_z_lidar_);
+  R_lidar_ << std_laspx_ * std_laspx_, 0,
+      0, std_laspy_ * std_laspy_;
 }
 
 void UKF::GenerateSigmaPoints()
@@ -251,7 +272,6 @@ void UKF::TransformSigmaPointsToRadarSpace()
 
 void UKF::PredictRadarMeanState()
 {
-  // Predict mean state
   VectorXd z_pred = VectorXd(n_z_radar_);
   z_pred.fill(0.0);
   for (int i = 0; i < weights_.size(); ++i)
@@ -261,14 +281,38 @@ void UKF::PredictRadarMeanState()
   z_radar_pred_ = z_pred;
 }
 
-void UKF::PredictRadarCovariance()
-{
-}
+// void UKF::PredictRadarCovariance()
+// {
+//   MatrixXd S_radar_pred = MatrixXd(n_z_radar_, n_z_radar_);
+//   S_radar_pred.fill(0.0);
+//   VectorXd z_diff;
+//   for (int i = 0; i < weights_.size(); i++)
+//   {
+//     z_diff = Zsigma_radar_.col(i) - z_radar_pred_;
+
+//     // Normalize yaw angle
+//     while (z_diff(1) > M_PI)
+//     {
+//       z_diff(1) -= 2. * M_PI;
+//     }
+//     while (z_diff(1) < -M_PI)
+//     {
+//       z_diff(1) += 2. * M_PI;
+//     }
+
+//     S_radar_pred += weights_(i) * (z_diff) * (z_diff).transpose();
+//   }
+
+//   // Add measurement noise
+//   S_radar_pred += R_radar_;
+
+//   S_radar_pred_ = S_radar_pred;
+// }
 
 void UKF::PredictRadarMeasurement()
 {
   PredictRadarMeanState();
-  PredictRadarCovariance();
+  // PredictRadarCovariance();
 }
 
 void UKF::ProcessLidarMeasurement() {}

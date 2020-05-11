@@ -25,6 +25,12 @@ public:
   void GenerateWeights();
 
   /**
+   * GenerateMeasurementNoiseCovarianceMatrices
+   * @brief Generates measurement noise covariance matrices for Radar and Lidar
+   */
+  void GenerateMeasurementNoiseCovarianceMatrices();
+
+  /**
    * GenerateSigmaPoints
    * @brief Generates sigma points based on posteior distribution(x_ and P_)
    */
@@ -70,7 +76,7 @@ public:
    * PredictRadarMeasurement
    * @brief Predict Radar measurement covariance matrix
    */
-  void PredictRadarCovariance();
+  // void PredictRadarCovariance();
 
   /**
    * PredictRadarMeasurement
@@ -133,6 +139,15 @@ public:
   // augmented state covariance matrix
   Eigen::MatrixXd P_aug_;
 
+  // predicted radar measurement covariance matrix
+  Eigen::MatrixXd S_radar_pred_;
+
+  // radar measurement noise covariance matrix
+  Eigen::MatrixXd R_radar_;
+
+  // lidar measurement noise covariance matrix
+  Eigen::MatrixXd R_lidar_;
+
   // sigma point matrix
   Eigen::MatrixXd Xsigma_;
 
@@ -180,6 +195,9 @@ public:
 
   // Radar measurement dimension
   int n_z_radar_;
+
+  // Lidar measurement dimension
+  int n_z_lidar_;
 
   // Sigma point spreading parameter
   double lambda_;
