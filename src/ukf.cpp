@@ -17,6 +17,12 @@ UKF::UKF()
   // Augmented state dimension
   n_aug_ = 7;
 
+  // Radar measurement dimension
+  n_z_radar_ = 3;
+
+  // Lidar measurement dimension
+  n_z_lidar_ = 2;
+
   // Sigma point spreading parameter
   lambda_ = 3 - n_x_;
 
@@ -35,11 +41,23 @@ UKF::UKF()
   // initial augmented state vector
   x_aug_ = VectorXd(n_aug_);
 
+  // initial predicted radar measurement
+  z_radar_pred_ = VectorXd(n_z_radar_);
+
+  // initial predicted radar measurement
+  z_lidar_pred_ = VectorXd(n_z_lidar_);
+
   // initial covariance matrix
   P_ = MatrixXd(n_x_, n_x_);
 
   // initial augmented covariance matrix
   P_aug_ = MatrixXd(n_aug_, n_aug_);
+
+  // initial predicted radar measurement covariance matrix
+  S_radar_pred_ = MatrixXd(n_z_radar_, n_z_radar_);
+
+  // initial predicted lidar measurement covariance matrix
+  S_lidar_pred_ = MatrixXd(n_z_lidar_, n_z_lidar_);
 
   // initial sigma point matrix
   Xsigma_ = MatrixXd(n_x_, 2 * n_x_ + 1);
@@ -49,6 +67,12 @@ UKF::UKF()
 
   // initial predicted sigma point matrix
   Xsigma_pred_ = MatrixXd(n_x_, 2 * n_aug_ + 1);
+
+  // initial radar measurement sigma points matrix
+  Zsigma_radar_ = MatrixXd(n_z_radar_, Xsigma_pred_.cols());
+
+  // initial lidar measurement sigma points matrix
+  Zsigma_lidar_ = MatrixXd(n_z_lidar_, Xsigma_pred_.cols());
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
   std_a_ = 30;
@@ -81,6 +105,7 @@ UKF::UKF()
    */
 
   GenerateWeights();
+  GenerateMeasurementNoiseCovarianceMatrices();
 }
 
 UKF::~UKF() {}
@@ -93,6 +118,20 @@ void UKF::GenerateWeights()
   {
     weights_(i) = 1.0 / (2 * (lambda_aug_ + n_aug_));
   }
+}
+
+void UKF::GenerateMeasurementNoiseCovarianceMatrices()
+{
+  // Generate noise covariance matrix for Radar
+  R_radar_ = MatrixXd(n_z_radar_, n_z_radar_);
+  R_radar_ << std_radr_ * std_radr_, 0, 0,
+      0, std_radphi_ * std_radphi_, 0,
+      0, 0, std_radrd_ * std_radrd_;
+
+  // Generate noise covariance matrix for Lidar
+  R_lidar_ = MatrixXd(n_z_lidar_, n_z_lidar_);
+  R_lidar_ << std_laspx_ * std_laspx_, 0,
+      0, std_laspy_ * std_laspy_;
 }
 
 void UKF::GenerateSigmaPoints()
@@ -215,12 +254,145 @@ void UKF::PredictCovarianceMatrix()
   P_ = P_pred;
 }
 
-void UKF::ProcessMeasurement(MeasurementPackage meas_package)
+void UKF::TransformSigmaPointsToRadarSpace()
+{
+  for (int i = 0; i < Xsigma_pred_.cols(); i++)
+  {
+    // Read needed sigma point info
+    double pos_x = Xsigma_pred_(0, i);
+    double pos_y = Xsigma_pred_(1, i);
+    double vel_abs = Xsigma_pred_(2, i);
+    double yaw_angle = Xsigma_pred_(3, i);
+
+    double v_x = vel_abs * std::cos(yaw_angle);
+    double v_y = vel_abs * std::sin(yaw_angle);
+
+    // Transform sigma point into measurement space
+    double tho = std::sqrt(pos_x * pos_x + pos_y * pos_y);
+    double phi = std::atan2(pos_y, pos_x);
+    double tho_d = (pos_x * v_x + pos_y * v_y) / std::sqrt(pos_x * pos_x + pos_y * pos_y);
+
+    // Write transformed sigma point
+    Zsigma_radar_(0, i) = tho;
+    Zsigma_radar_(1, i) = phi;
+    Zsigma_radar_(2, i) = tho_d;
+  }
+}
+
+void UKF::TransformSigmaPointsToLidarSpace()
+{
+  for (int i = 0; i < Xsigma_pred_.cols(); i++)
+  {
+    // Read needed sigma point info
+    double pos_x = Xsigma_pred_(0, i);
+    double pos_y = Xsigma_pred_(1, i);
+
+    // Write transformed sigma point
+    Zsigma_lidar_(0, i) = pos_x;
+    Zsigma_lidar_(1, i) = pos_y;
+  }
+}
+
+void UKF::PredictRadarMeanState()
+{
+  VectorXd z_pred = VectorXd(n_z_radar_);
+  z_pred.fill(0.0);
+  for (int i = 0; i < weights_.size(); ++i)
+  {
+    z_pred += weights_(i) * Zsigma_radar_.col(i);
+  }
+  z_radar_pred_ = z_pred;
+}
+
+void UKF::PredictLidarMeanState()
+{
+  VectorXd z_pred = VectorXd(n_z_lidar_);
+  z_pred.fill(0.0);
+  for (int i = 0; i < weights_.size(); ++i)
+  {
+    z_pred += weights_(i) * Zsigma_lidar_.col(i);
+  }
+  z_lidar_pred_ = z_pred;
+}
+
+void UKF::PredictRadarCovariance()
+{
+  MatrixXd S_radar_pred = MatrixXd(n_z_radar_, n_z_radar_);
+  S_radar_pred.fill(0.0);
+  VectorXd z_diff;
+  for (int i = 0; i < weights_.size(); i++)
+  {
+    z_diff = Zsigma_radar_.col(i) - z_radar_pred_;
+
+    // Normalize yaw angle
+    while (z_diff(1) > M_PI)
+    {
+      z_diff(1) -= 2. * M_PI;
+    }
+    while (z_diff(1) < -M_PI)
+    {
+      z_diff(1) += 2. * M_PI;
+    }
+
+    S_radar_pred += weights_(i) * (z_diff) * (z_diff).transpose();
+  }
+
+  // Add measurement noise
+  S_radar_pred += R_radar_;
+
+  S_radar_pred_ = S_radar_pred;
+}
+
+void UKF::PredictLidarCovariance()
+{
+  MatrixXd S_lidar_pred = MatrixXd(n_z_lidar_, n_z_lidar_);
+  S_lidar_pred.fill(0.0);
+  VectorXd z_diff;
+  for (int i = 0; i < weights_.size(); i++)
+  {
+    z_diff = Zsigma_lidar_.col(i) - z_lidar_pred_;
+
+    S_lidar_pred += weights_(i) * (z_diff) * (z_diff).transpose();
+  }
+
+  // Add measurement noise
+  S_lidar_pred += R_lidar_;
+
+  S_lidar_pred_ = S_lidar_pred;
+}
+
+void UKF::PredictRadarMeasurement()
+{
+  PredictRadarMeanState();
+  PredictRadarCovariance();
+}
+
+void UKF::PredictLidarMeasurement()
+{
+  PredictLidarMeanState();
+  PredictLidarCovariance();
+}
+
+void UKF::ProcessMeasurement(MeasurementPackage &meas_package)
 {
   /**
    * TODO: Complete this function! Make sure you switch between lidar and radar
    * measurements.
    */
+  if (meas_package.sensor_type_ == MeasurementPackage::LASER)
+  {
+    TransformSigmaPointsToLidarSpace();
+    PredictLidarMeasurement();
+  }
+  else if (meas_package.sensor_type_ == MeasurementPackage::RADAR)
+  {
+    TransformSigmaPointsToRadarSpace();
+    PredictRadarMeasurement();
+  }
+  else
+  {
+    std::cout << "Unknown sensor type!" << std::endl;
+  }
 }
 
 void UKF::Prediction(double dt)
