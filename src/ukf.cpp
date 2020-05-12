@@ -150,7 +150,7 @@ void UKF::InitializeStates(const MeasurementPackage &meas_package)
 
   is_initialized_ = true;
   time_us_ = meas_package.timestamp_;
-  std::cout << "Initialized with the first measurement!" << std::endl;
+  std::cout << "Unscented Kalman Filter Initialized!" << std::endl;
 }
 
 void UKF::GenerateWeights()
@@ -216,7 +216,7 @@ void UKF::PredictSigmaPoints(const double dt)
   for (int i = 0; i < Xsigma_pred_.cols(); i++)
   {
     // Read data from augmented sigma point
-    double pos_x = Xsigma_aug_(0.0, i);
+    double pos_x = Xsigma_aug_(0, i);
     double pos_y = Xsigma_aug_(1, i);
     double vel_abs = Xsigma_aug_(2, i);
     double yaw_angle = Xsigma_aug_(3, i);
@@ -254,7 +254,7 @@ void UKF::PredictSigmaPoints(const double dt)
     yaw_rate_pred += std_yawdd * dt;
 
     // Write the predicted sigma point
-    Xsigma_pred_(0.0, i) = pos_x_pred;
+    Xsigma_pred_(0, i) = pos_x_pred;
     Xsigma_pred_(1, i) = pos_y_pred;
     Xsigma_pred_(2, i) = vel_abs_pred;
     Xsigma_pred_(3, i) = yaw_angle_pred;
@@ -302,7 +302,7 @@ void UKF::TransformSigmaPointsToRadarSpace()
   for (int i = 0; i < Xsigma_pred_.cols(); i++)
   {
     // Read needed sigma point info
-    double pos_x = Xsigma_pred_(0.0, i);
+    double pos_x = Xsigma_pred_(0, i);
     double pos_y = Xsigma_pred_(1, i);
     double vel_abs = Xsigma_pred_(2, i);
     double yaw_angle = Xsigma_pred_(3, i);
@@ -316,7 +316,7 @@ void UKF::TransformSigmaPointsToRadarSpace()
     double rho_d = (pos_x * v_x + pos_y * v_y) / std::sqrt(pos_x * pos_x + pos_y * pos_y);
 
     // Write transformed sigma point
-    Zsigma_radar_(0.0, i) = rho;
+    Zsigma_radar_(0, i) = rho;
     Zsigma_radar_(1, i) = phi;
     Zsigma_radar_(2, i) = rho_d;
   }
@@ -327,11 +327,11 @@ void UKF::TransformSigmaPointsToLidarSpace()
   for (int i = 0; i < Xsigma_pred_.cols(); i++)
   {
     // Read needed sigma point info
-    double pos_x = Xsigma_pred_(0.0, i);
+    double pos_x = Xsigma_pred_(0, i);
     double pos_y = Xsigma_pred_(1, i);
 
     // Write transformed sigma point
-    Zsigma_lidar_(0.0, i) = pos_x;
+    Zsigma_lidar_(0, i) = pos_x;
     Zsigma_lidar_(1, i) = pos_y;
   }
 }
@@ -428,6 +428,10 @@ void UKF::ProcessMeasurement(const MeasurementPackage &meas_package)
     return;
   }
 
+  float dt = (meas_package.timestamp_ - time_us_) / 1000000.0;
+  time_us_ = meas_package.timestamp_;
+  Prediction(dt);
+
   if (meas_package.sensor_type_ == MeasurementPackage::RADAR)
   {
     TransformSigmaPointsToRadarSpace();
@@ -446,7 +450,7 @@ void UKF::ProcessMeasurement(const MeasurementPackage &meas_package)
   }
 }
 
-void UKF::Prediction(double dt)
+void UKF::Prediction(const double &dt)
 {
   /**
    * TODO: Complete this function! Estimate the object's location.
