@@ -19,6 +19,12 @@ public:
   virtual ~UKF();
 
   /**
+   * InitializeStates
+   * @brief Initialize state x_ and Covariance matrix P_ with the first measurement
+   */
+  void InitializeStates(const MeasurementPackage &meas_package);
+
+  /**
    * GenerateWeights
    * @brief Generates weights for sigma points and covariance matrix
    */
@@ -148,7 +154,7 @@ public:
   // augmented state vector: [pos_x pos_y vel_abs yaw_angle yaw_rate std_a std_yawdd] in SI units and rad
   Eigen::VectorXd x_aug_;
 
-  // predicted radar measurement : [tho phi tho_d]
+  // predicted radar measurement : [rho phi rho_d]
   Eigen::VectorXd z_radar_pred_;
 
   // predicted lidar measurement : [pos_x pos_y]

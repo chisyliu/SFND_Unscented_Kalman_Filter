@@ -11,6 +11,11 @@ UKF::UKF()
 {
   // Set UKF parameters
 
+  is_initialized_ = false;
+
+  // Start time
+  time_us_ = 0;
+
   // State dimension
   n_x_ = 5;
 
@@ -110,6 +115,44 @@ UKF::UKF()
 
 UKF::~UKF() {}
 
+void UKF::InitializeStates(const MeasurementPackage &meas_package)
+{
+
+  if (meas_package.sensor_type_ == MeasurementPackage::RADAR)
+  {
+    double rho = meas_package.raw_measurements_(0);
+    double phi = meas_package.raw_measurements_(1);
+    double rho_d = meas_package.raw_measurements_(2);
+
+    double x = rho * std::sin(phi);
+    double y = rho * std::cos(phi);
+
+    x_ << x, y, rho_d, phi, 0;
+
+    P_ << std_radr_ * std_radr_, 0.0, 0.0, 0.0, 0.0,
+        0.0, std_radr_ * std_radr_, 0.0, 0.0, 0.0,
+        0.0, 0.0, std_radrd_ * std_radrd_, 0.0, 0.0,
+        0.0, 0.0, 0.0, std_radphi_ * std_radphi_, 0.0,
+        0.0, 0.0, 0.0, 0.0, 1;
+  }
+  else
+  {
+    double pos_x = meas_package.raw_measurements_(0);
+    double pos_y = meas_package.raw_measurements_(1);
+    x_ << pos_x, pos_y, 0.0, 0.0, 0.0;
+
+    P_ << std_laspx_ * std_laspx_, 0.0, 0.0, 0.0, 0.0,
+        0.0, std_laspy_ * std_laspy_, 0.0, 0.0, 0.0,
+        0.0, 0.0, 1, 0.0, 0.0,
+        0.0, 0.0, 0.0, 1, 0.0,
+        0.0, 0.0, 0.0, 0.0, 1;
+  }
+
+  is_initialized_ = true;
+  time_us_ = meas_package.timestamp_;
+  std::cout << "Initialized with the first measurement!" << std::endl;
+}
+
 void UKF::GenerateWeights()
 {
   weights_ = VectorXd(2 * n_aug_ + 1);
@@ -124,14 +167,14 @@ void UKF::GenerateMeasurementNoiseCovarianceMatrices()
 {
   // Generate noise covariance matrix for Radar
   R_radar_ = MatrixXd(n_z_radar_, n_z_radar_);
-  R_radar_ << std_radr_ * std_radr_, 0, 0,
-      0, std_radphi_ * std_radphi_, 0,
-      0, 0, std_radrd_ * std_radrd_;
+  R_radar_ << std_radr_ * std_radr_, 0.0, 0.0,
+      0.0, std_radphi_ * std_radphi_, 0.0,
+      0.0, 0.0, std_radrd_ * std_radrd_;
 
   // Generate noise covariance matrix for Lidar
   R_lidar_ = MatrixXd(n_z_lidar_, n_z_lidar_);
-  R_lidar_ << std_laspx_ * std_laspx_, 0,
-      0, std_laspy_ * std_laspy_;
+  R_lidar_ << std_laspx_ * std_laspx_, 0.0,
+      0.0, std_laspy_ * std_laspy_;
 }
 
 void UKF::GenerateSigmaPoints()
@@ -173,7 +216,7 @@ void UKF::PredictSigmaPoints(const double dt)
   for (int i = 0; i < Xsigma_pred_.cols(); i++)
   {
     // Read data from augmented sigma point
-    double pos_x = Xsigma_aug_(0, i);
+    double pos_x = Xsigma_aug_(0.0, i);
     double pos_y = Xsigma_aug_(1, i);
     double vel_abs = Xsigma_aug_(2, i);
     double yaw_angle = Xsigma_aug_(3, i);
@@ -211,7 +254,7 @@ void UKF::PredictSigmaPoints(const double dt)
     yaw_rate_pred += std_yawdd * dt;
 
     // Write the predicted sigma point
-    Xsigma_pred_(0, i) = pos_x_pred;
+    Xsigma_pred_(0.0, i) = pos_x_pred;
     Xsigma_pred_(1, i) = pos_y_pred;
     Xsigma_pred_(2, i) = vel_abs_pred;
     Xsigma_pred_(3, i) = yaw_angle_pred;
@@ -259,7 +302,7 @@ void UKF::TransformSigmaPointsToRadarSpace()
   for (int i = 0; i < Xsigma_pred_.cols(); i++)
   {
     // Read needed sigma point info
-    double pos_x = Xsigma_pred_(0, i);
+    double pos_x = Xsigma_pred_(0.0, i);
     double pos_y = Xsigma_pred_(1, i);
     double vel_abs = Xsigma_pred_(2, i);
     double yaw_angle = Xsigma_pred_(3, i);
@@ -268,14 +311,14 @@ void UKF::TransformSigmaPointsToRadarSpace()
     double v_y = vel_abs * std::sin(yaw_angle);
 
     // Transform sigma point into measurement space
-    double tho = std::sqrt(pos_x * pos_x + pos_y * pos_y);
+    double rho = std::sqrt(pos_x * pos_x + pos_y * pos_y);
     double phi = std::atan2(pos_y, pos_x);
-    double tho_d = (pos_x * v_x + pos_y * v_y) / std::sqrt(pos_x * pos_x + pos_y * pos_y);
+    double rho_d = (pos_x * v_x + pos_y * v_y) / std::sqrt(pos_x * pos_x + pos_y * pos_y);
 
     // Write transformed sigma point
-    Zsigma_radar_(0, i) = tho;
+    Zsigma_radar_(0.0, i) = rho;
     Zsigma_radar_(1, i) = phi;
-    Zsigma_radar_(2, i) = tho_d;
+    Zsigma_radar_(2, i) = rho_d;
   }
 }
 
@@ -284,11 +327,11 @@ void UKF::TransformSigmaPointsToLidarSpace()
   for (int i = 0; i < Xsigma_pred_.cols(); i++)
   {
     // Read needed sigma point info
-    double pos_x = Xsigma_pred_(0, i);
+    double pos_x = Xsigma_pred_(0.0, i);
     double pos_y = Xsigma_pred_(1, i);
 
     // Write transformed sigma point
-    Zsigma_lidar_(0, i) = pos_x;
+    Zsigma_lidar_(0.0, i) = pos_x;
     Zsigma_lidar_(1, i) = pos_y;
   }
 }
@@ -379,6 +422,12 @@ void UKF::ProcessMeasurement(const MeasurementPackage &meas_package)
    * TODO: Complete this function! Make sure you switch between lidar and radar
    * measurements.
    */
+  if (!is_initialized_)
+  {
+    InitializeStates(meas_package);
+    return;
+  }
+
   if (meas_package.sensor_type_ == MeasurementPackage::RADAR)
   {
     TransformSigmaPointsToRadarSpace();
