@@ -109,29 +109,22 @@ public:
   void PredictLidarCovariance();
 
   /**
-   * PredictRadarMeasurement
-   * @brief Predict Radar measurement with sigma points in radar measurement space
+   * Update
+   * @brief Update with either Lidar measurement or Radar measurement
    */
-  void PredictRadarMeasurement();
+  void Update(const MeasurementPackage &meas_package);
 
   /**
-   * PredictLidarMeasurement
-   * @brief Predict Lidar measurement with sigma points in radar measurement space
-   */
-  void PredictLidarMeasurement();
-
-  /**
-   * ProcessMeasurement
+   * Iterate
    * @param meas_package The latest measurement data of either radar or laser
    */
-  void ProcessMeasurement(const MeasurementPackage &meas_package);
+  void Iterate(const MeasurementPackage &meas_package);
 
   /**
-   * Prediction Predicts sigma points, the state, and the state covariance
-   * matrix
-   * @param delta_t Time between k and k+1 in s
+   * Predicts augmented sigma points, the state, and the state covariance matrix
+   * @param dt Time between k and k+1 in s
    */
-  void Prediction(const double &dt);
+  void Predict(const double &dt);
 
   /**
    * Updates the state and the state covariance matrix using a laser measurement
@@ -145,7 +138,7 @@ public:
    */
   void UpdateRadar(const MeasurementPackage &meas_package);
 
-  // initially set to false, set to true in first call of ProcessMeasurement
+  // initially set to false, set to true in first call of Iterate
   bool is_initialized_;
 
   // if this is false, laser measurements will be ignored (except for init)

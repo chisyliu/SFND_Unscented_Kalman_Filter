@@ -380,66 +380,6 @@ void UKF::PredictLidarCovariance()
   S_lidar_pred_ = S_lidar_pred;
 }
 
-void UKF::PredictRadarMeasurement()
-{
-  PredictRadarMeanState();
-  PredictRadarCovariance();
-}
-
-void UKF::PredictLidarMeasurement()
-{
-  PredictLidarMeanState();
-  PredictLidarCovariance();
-}
-
-void UKF::ProcessMeasurement(const MeasurementPackage &meas_package)
-{
-  /**
-   * TODO: Complete this function! Make sure you switch between lidar and radar
-   * measurements.
-   */
-  if (!is_initialized_)
-  {
-    InitializeStates(meas_package);
-    return;
-  }
-
-  double dt = (meas_package.timestamp_ - time_us_) / 1000000.0;
-  time_us_ = meas_package.timestamp_;
-  Prediction(dt);
-
-  if (meas_package.sensor_type_ == MeasurementPackage::RADAR)
-  {
-    TransformSigmaPointsToRadarSpace();
-    PredictRadarMeasurement();
-    UpdateRadar(meas_package);
-  }
-  else if (meas_package.sensor_type_ == MeasurementPackage::LASER)
-  {
-    TransformSigmaPointsToLidarSpace();
-    PredictLidarMeasurement();
-    UpdateLidar(meas_package);
-  }
-  else
-  {
-    std::cout << "Unknown sensor type!" << std::endl;
-  }
-}
-
-void UKF::Prediction(const double &dt)
-{
-  /**
-   * TODO: Complete this function! Estimate the object's location.
-   * Modify the state vector, x_. Predict sigma points, the state,
-   * and the state covariance matrix.
-   */
-
-  GenerateAugmentedSigmaPoints();
-  PredictSigmaPoints(dt);
-  PredictMeanState();
-  PredictCovarianceMatrix();
-}
-
 void UKF::UpdateRadar(const MeasurementPackage &meas_package)
 {
   /**
@@ -508,4 +448,60 @@ void UKF::UpdateLidar(const MeasurementPackage &meas_package)
 
   // Update covariance matrix
   P_ -= K * S_lidar_pred_ * K.transpose();
+}
+
+void UKF::Predict(const double &dt)
+{
+  /**
+   * TODO: Complete this function! Estimate the object's location.
+   * Modify the state vector, x_. Predict sigma points, the state,
+   * and the state covariance matrix.
+   */
+
+  GenerateAugmentedSigmaPoints();
+  PredictSigmaPoints(dt);
+  PredictMeanState();
+  PredictCovarianceMatrix();
+}
+
+void UKF::Update(const MeasurementPackage &meas_package)
+{
+  if (meas_package.sensor_type_ == MeasurementPackage::RADAR)
+  {
+    TransformSigmaPointsToRadarSpace();
+    PredictRadarMeanState();
+    PredictRadarCovariance();
+    UpdateRadar(meas_package);
+  }
+  else if (meas_package.sensor_type_ == MeasurementPackage::LASER)
+  {
+    TransformSigmaPointsToLidarSpace();
+    PredictLidarMeanState();
+    PredictLidarCovariance();
+    UpdateLidar(meas_package);
+  }
+  else
+  {
+    std::cout << "Unknown sensor type!" << std::endl;
+  }
+}
+
+void UKF::Iterate(const MeasurementPackage &meas_package)
+{
+  /**
+   * TODO: Complete this function! Make sure you switch between lidar and radar
+   * measurements.
+   */
+  if (!is_initialized_)
+  {
+    InitializeStates(meas_package);
+    return;
+  }
+
+  double dt = (meas_package.timestamp_ - time_us_) / 1000000.0;
+  time_us_ = meas_package.timestamp_;
+
+  Predict(dt);
+
+  Update(meas_package);
 }
