@@ -45,8 +45,17 @@ public:
 	std::vector<VectorXd> ground_truth;
 
 	double noise(double stddev, long long seedNum);
-	lmarker lidarSense(Car &car, pcl::visualization::PCLVisualizer::Ptr &viewer, long long timestamp, bool visualize);
-	rmarker radarSense(Car &car, Car ego, pcl::visualization::PCLVisualizer::Ptr &viewer, long long timestamp, bool visualize);
+	lmarker lidarSense(Car &car,
+					   pcl::visualization::PCLVisualizer::Ptr &viewer,
+					   long long timestamp,
+					   bool visualize,
+					   const bool &logNIS);
+	rmarker radarSense(Car &car,
+					   Car ego,
+					   pcl::visualization::PCLVisualizer::Ptr &viewer,
+					   long long timestamp,
+					   bool visualize,
+					   const bool &logNIS);
 	void ukfResults(Car car, pcl::visualization::PCLVisualizer::Ptr &viewer, double time, int steps);
 	/**
 	* A helper method to calculate RMSE.

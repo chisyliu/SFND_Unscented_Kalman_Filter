@@ -11,6 +11,8 @@ UKF::UKF()
 {
   // Set UKF parameters
 
+  logNIS_ = false;
+
   is_initialized_ = false;
 
   // Start time
@@ -416,6 +418,11 @@ void UKF::UpdateRadar(const MeasurementPackage &meas_package)
 
   // Update covariance matrix
   P_ -= K * S_radar_pred_ * K.transpose();
+  if (logNIS_)
+  {
+    double NIS_rader = z_diff.transpose() * S_radar_pred_.inverse() * z_diff;
+    NIS_lidar_.push_back(NIS_rader);
+  }
 }
 
 void UKF::UpdateLidar(const MeasurementPackage &meas_package)
@@ -448,6 +455,11 @@ void UKF::UpdateLidar(const MeasurementPackage &meas_package)
 
   // Update covariance matrix
   P_ -= K * S_lidar_pred_ * K.transpose();
+  if (logNIS_)
+  {
+    double NIS_laser = z_diff.transpose() * S_lidar_pred_.inverse() * z_diff;
+    NIS_lidar_.push_back(NIS_laser);
+  }
 }
 
 void UKF::Predict(const double &dt)
@@ -486,12 +498,17 @@ void UKF::Update(const MeasurementPackage &meas_package)
   }
 }
 
-void UKF::Iterate(const MeasurementPackage &meas_package)
+void UKF::Iterate(const MeasurementPackage &meas_package, const bool &logNIS)
 {
   /**
    * TODO: Complete this function! Make sure you switch between lidar and radar
    * measurements.
    */
+  if (logNIS)
+  {
+    logNIS_ = true;
+  }
+
   if (!is_initialized_)
   {
     InitializeStates(meas_package);

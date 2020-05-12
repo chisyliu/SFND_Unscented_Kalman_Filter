@@ -4,6 +4,7 @@
 #include "Eigen/Dense"
 #include "measurement_package.h"
 #include <iostream>
+#include <vector>
 
 class UKF
 {
@@ -118,7 +119,7 @@ public:
    * Iterate
    * @param meas_package The latest measurement data of either radar or laser
    */
-  void Iterate(const MeasurementPackage &meas_package);
+  void Iterate(const MeasurementPackage &meas_package, const bool &logNIS);
 
   /**
    * Predicts augmented sigma points, the state, and the state covariance matrix
@@ -230,6 +231,15 @@ public:
 
   // Augmented sigma point spreading parameter
   double lambda_aug_;
+
+  // bool for if log NISs
+  bool logNIS_;
+
+  // Store NIS(Normalized Innovation Squared) results for Lidar
+  std::vector<double> NIS_lidar_;
+
+  // Store NIS(Normalized Innovation Squared) results for Radar
+  std::vector<double> NIS_radar_;
 };
 
 #endif // UKF_H

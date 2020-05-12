@@ -28,10 +28,15 @@ public:
 	double projectedTime = 0;
 	int projectedSteps = 0;
 	// --------------------------------
+	bool logNIS_ = false;
 
-	Highway(pcl::visualization::PCLVisualizer::Ptr &viewer)
+	Highway(pcl::visualization::PCLVisualizer::Ptr &viewer, const bool &logNIS)
 	{
-
+		if (logNIS)
+		{
+			trackCars = {true, true, true};
+			logNIS_ = true;
+		}
 		tools = Tools();
 
 		egoCar = Car(Vect3(0, 0, 0), Vect3(4, 2, 2), Color(0, 1, 0), 0, 0, 2, "egoCar");
@@ -104,7 +109,10 @@ public:
 		car3.render(viewer);
 	}
 
-	void stepHighway(double egoVelocity, long long timestamp, int frame_per_sec, pcl::visualization::PCLVisualizer::Ptr &viewer)
+	void stepHighway(double egoVelocity,
+					 long long timestamp,
+					 int frame_per_sec,
+					 pcl::visualization::PCLVisualizer::Ptr &viewer)
 	{
 
 		if (visualize_pcd)
@@ -128,8 +136,8 @@ public:
 				VectorXd gt(4);
 				gt << traffic[i].position.x, traffic[i].position.y, traffic[i].velocity * cos(traffic[i].angle), traffic[i].velocity * sin(traffic[i].angle);
 				tools.ground_truth.push_back(gt);
-				tools.lidarSense(traffic[i], viewer, timestamp, visualize_lidar);
-				tools.radarSense(traffic[i], egoCar, viewer, timestamp, visualize_radar);
+				tools.lidarSense(traffic[i], viewer, timestamp, visualize_lidar, logNIS_);
+				tools.radarSense(traffic[i], egoCar, viewer, timestamp, visualize_radar, logNIS_);
 				tools.ukfResults(traffic[i], viewer, projectedTime, projectedSteps);
 				VectorXd estimate(4);
 				double v = traffic[i].ukf.x_(2);
