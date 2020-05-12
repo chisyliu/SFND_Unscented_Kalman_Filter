@@ -153,6 +153,18 @@ void UKF::InitializeStates(const MeasurementPackage &meas_package)
   std::cout << "Unscented Kalman Filter Initialized!" << std::endl;
 }
 
+void UKF::NormalizeAngle(double &angle)
+{
+  while (angle > M_PI)
+  {
+    angle -= 2.0 * M_PI;
+  }
+  while (angle < -M_PI)
+  {
+    angle += 2.0 * M_PI;
+  }
+}
+
 void UKF::GenerateWeights()
 {
   weights_ = VectorXd(2 * n_aug_ + 1);
@@ -281,17 +293,7 @@ void UKF::PredictCovarianceMatrix()
   for (int i = 0; i < weights_.size(); i++)
   {
     x_diff = Xsigma_pred_.col(i) - x_;
-
-    // Normalize yaw angle
-    while (x_diff(3) > M_PI)
-    {
-      x_diff(3) -= 2. * M_PI;
-    }
-    while (x_diff(3) < -M_PI)
-    {
-      x_diff(3) += 2. * M_PI;
-    }
-
+    NormalizeAngle(x_diff(3));
     P_pred += weights_(i) * (x_diff) * (x_diff).transpose();
   }
   P_ = P_pred;
@@ -366,17 +368,7 @@ void UKF::PredictRadarCovariance()
   for (int i = 0; i < weights_.size(); i++)
   {
     z_diff = Zsigma_radar_.col(i) - z_radar_pred_;
-
-    // Normalize yaw angle
-    while (z_diff(1) > M_PI)
-    {
-      z_diff(1) -= 2. * M_PI;
-    }
-    while (z_diff(1) < -M_PI)
-    {
-      z_diff(1) += 2. * M_PI;
-    }
-
+    NormalizeAngle(z_diff(1));
     S_radar_pred += weights_(i) * (z_diff) * (z_diff).transpose();
   }
 
@@ -483,26 +475,10 @@ void UKF::UpdateRadar(const MeasurementPackage &meas_package)
   for (int i = 0; i < weights_.size(); i++)
   {
     z_diff = Zsigma_radar_.col(i) - z_radar_pred_;
-    // Normalize yaw angle
-    while (z_diff(1) > M_PI)
-    {
-      z_diff(1) -= 2. * M_PI;
-    }
-    while (z_diff(1) < -M_PI)
-    {
-      z_diff(1) += 2. * M_PI;
-    }
+    NormalizeAngle(z_diff(1));
 
     x_diff = Xsigma_pred_.col(i) - x_;
-    // Normalize yaw angle
-    while (x_diff(3) > M_PI)
-    {
-      x_diff(3) -= 2. * M_PI;
-    }
-    while (x_diff(3) < -M_PI)
-    {
-      x_diff(3) += 2. * M_PI;
-    }
+    NormalizeAngle(x_diff(3));
 
     T_XZ += weights_(i) * (x_diff) * (z_diff).transpose();
   }

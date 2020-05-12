@@ -25,6 +25,12 @@ public:
   void InitializeStates(const MeasurementPackage &meas_package);
 
   /**
+   * NormalizeAngle
+   * @brief Helper function to normalize angle
+   */
+  void NormalizeAngle(double &angle);
+
+  /**
    * GenerateWeights
    * @brief Generates weights for sigma points and covariance matrix
    */
