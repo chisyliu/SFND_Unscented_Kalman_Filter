@@ -373,21 +373,23 @@ void UKF::PredictLidarMeasurement()
   PredictLidarCovariance();
 }
 
-void UKF::ProcessMeasurement(MeasurementPackage &meas_package)
+void UKF::ProcessMeasurement(const MeasurementPackage &meas_package)
 {
   /**
    * TODO: Complete this function! Make sure you switch between lidar and radar
    * measurements.
    */
-  if (meas_package.sensor_type_ == MeasurementPackage::LASER)
-  {
-    TransformSigmaPointsToLidarSpace();
-    PredictLidarMeasurement();
-  }
-  else if (meas_package.sensor_type_ == MeasurementPackage::RADAR)
+  if (meas_package.sensor_type_ == MeasurementPackage::RADAR)
   {
     TransformSigmaPointsToRadarSpace();
     PredictRadarMeasurement();
+    UpdateRadar(meas_package);
+  }
+  else if (meas_package.sensor_type_ == MeasurementPackage::LASER)
+  {
+    TransformSigmaPointsToLidarSpace();
+    PredictLidarMeasurement();
+    UpdateLidar(meas_package);
   }
   else
   {
@@ -410,17 +412,7 @@ void UKF::Prediction(double dt)
   PredictCovarianceMatrix();
 }
 
-void UKF::UpdateLidar(MeasurementPackage meas_package)
-{
-  /**
-   * TODO: Complete this function! Use lidar data to update the belief
-   * about the object's position. Modify the state vector, x_, and
-   * covariance, P_.
-   * You can also calculate the lidar NIS, if desired.
-   */
-}
-
-void UKF::UpdateRadar(MeasurementPackage meas_package)
+void UKF::UpdateRadar(const MeasurementPackage &meas_package)
 {
   /**
    * TODO: Complete this function! Use radar data to update the belief
@@ -428,4 +420,79 @@ void UKF::UpdateRadar(MeasurementPackage meas_package)
    * covariance, P_.
    * You can also calculate the radar NIS, if desired.
    */
+
+  MatrixXd T_XZ = MatrixXd(n_x_, n_z_radar_); // Cross-correlation matrix
+  VectorXd z_diff = VectorXd(n_z_radar_);
+  VectorXd x_diff = VectorXd(n_x_);
+
+  // // Calculate Cross-correlation matrix
+  T_XZ.fill(0.0);
+  for (int i = 0; i < weights_.size(); i++)
+  {
+    z_diff = Zsigma_radar_.col(i) - z_radar_pred_;
+    // Normalize yaw angle
+    while (z_diff(1) > M_PI)
+    {
+      z_diff(1) -= 2. * M_PI;
+    }
+    while (z_diff(1) < -M_PI)
+    {
+      z_diff(1) += 2. * M_PI;
+    }
+
+    x_diff = Xsigma_pred_.col(i) - x_;
+    // Normalize yaw angle
+    while (x_diff(3) > M_PI)
+    {
+      x_diff(3) -= 2. * M_PI;
+    }
+    while (x_diff(3) < -M_PI)
+    {
+      x_diff(3) += 2. * M_PI;
+    }
+
+    T_XZ += weights_(i) * (x_diff) * (z_diff).transpose();
+  }
+
+  // Calculate Kalman gain K
+  MatrixXd K = T_XZ * S_radar_pred_.inverse();
+
+  // Update state
+  z_diff = meas_package.raw_measurements_ - z_radar_pred_;
+  x_ += K * z_diff;
+
+  // Update covariance matrix
+  P_ -= K * S_radar_pred_ * K.transpose();
+}
+
+void UKF::UpdateLidar(const MeasurementPackage &meas_package)
+{
+  /**
+   * TODO: Complete this function! Use lidar data to update the belief
+   * about the object's position. Modify the state vector, x_, and
+   * covariance, P_.
+   * You can also calculate the lidar NIS, if desired.
+   */
+  MatrixXd T_XZ = MatrixXd(n_x_, n_z_lidar_); // Cross-correlation matrix
+  VectorXd z_diff = VectorXd(n_z_lidar_);
+  VectorXd x_diff = VectorXd(n_x_);
+
+  // // Calculate Cross-correlation matrix
+  T_XZ.fill(0.0);
+  for (int i = 0; i < weights_.size(); i++)
+  {
+    z_diff = Zsigma_lidar_.col(i) - z_lidar_pred_;
+    x_diff = Xsigma_pred_.col(i) - x_;
+    T_XZ += weights_(i) * (x_diff) * (z_diff).transpose();
+  }
+
+  // Calculate Kalman gain K
+  MatrixXd K = T_XZ * S_lidar_pred_.inverse();
+
+  // Update state
+  z_diff = meas_package.raw_measurements_ - z_lidar_pred_;
+  x_ += K * z_diff;
+
+  // Update covariance matrix
+  P_ -= K * S_lidar_pred_ * K.transpose();
 }
