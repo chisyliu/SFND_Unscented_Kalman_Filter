@@ -28,9 +28,6 @@ UKF::UKF()
   // Lidar measurement dimension
   n_z_lidar_ = 2;
 
-  // Sigma point spreading parameter
-  lambda_ = 3 - n_x_;
-
   // Augmented sigma point spreading parameter
   lambda_aug_ = 3 - n_aug_;
 
@@ -80,7 +77,7 @@ UKF::UKF()
   std_a_ = 2.0;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 1.0;
+  std_yawdd_ = 0.5;
 
   /**
    * DO NOT MODIFY measurement noise values below.
@@ -200,11 +197,12 @@ void UKF::GenerateAugmentedSigmaPoints()
   P_aug_(n_x_ + 1, n_x_ + 1) = std_yawdd_ * std_yawdd_;
 
   MatrixXd A_aug = P_aug_.llt().matrixL();
+  Xsigma_aug_.fill(0.0);
   Xsigma_aug_.col(0) = x_aug_;
   for (int i = 0; i < n_aug_; ++i)
   {
-    Xsigma_aug_.col(i + 1) = x_aug_ + sqrt(lambda_aug_ + n_aug_) * A_aug.col(i);
-    Xsigma_aug_.col(i + 1 + n_aug_) = x_aug_ - sqrt(lambda_aug_ + n_aug_) * A_aug.col(i);
+    Xsigma_aug_.col(i + 1) = x_aug_ + std::sqrt(lambda_aug_ + n_aug_) * A_aug.col(i);
+    Xsigma_aug_.col(i + 1 + n_aug_) = x_aug_ - std::sqrt(lambda_aug_ + n_aug_) * A_aug.col(i);
   }
 }
 
@@ -230,7 +228,7 @@ void UKF::PredictSigmaPoints(const double dt)
     double yaw_rate_pred;
 
     // Apply CTRV motion model
-    if (std::abs(yaw_rate) < epsilon) // if yaw_rate is 0
+    if (std::fabs(yaw_rate) < epsilon) // if yaw_rate is 0
     {
       pos_x_pred = pos_x + vel_abs * dt * std::cos(yaw_angle);
       pos_y_pred = pos_y + vel_abs * dt * std::sin(yaw_angle);
@@ -473,6 +471,7 @@ void UKF::UpdateRadar(const MeasurementPackage &meas_package)
 
   // Update state
   z_diff = meas_package.raw_measurements_ - z_radar_pred_;
+  NormalizeAngle(z_diff(1));
   x_ += K * z_diff;
 
   // Update covariance matrix

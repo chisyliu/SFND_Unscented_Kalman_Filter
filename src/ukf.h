@@ -235,9 +235,6 @@ public:
   // Lidar measurement dimension
   int n_z_lidar_;
 
-  // Sigma point spreading parameter
-  double lambda_;
-
   // Augmented sigma point spreading parameter
   double lambda_aug_;
 };
