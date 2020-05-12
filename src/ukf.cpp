@@ -64,9 +64,6 @@ UKF::UKF()
   // initial predicted lidar measurement covariance matrix
   S_lidar_pred_ = MatrixXd(n_z_lidar_, n_z_lidar_);
 
-  // initial sigma point matrix
-  Xsigma_ = MatrixXd(n_x_, 2 * n_x_ + 1);
-
   // initial augmented sigma point matrix
   Xsigma_aug_ = MatrixXd(n_aug_, 2 * n_aug_ + 1);
 
@@ -80,10 +77,10 @@ UKF::UKF()
   Zsigma_lidar_ = MatrixXd(n_z_lidar_, Xsigma_pred_.cols());
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 30;
+  std_a_ = 2.0;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 30;
+  std_yawdd_ = 1.0;
 
   /**
    * DO NOT MODIFY measurement noise values below.
@@ -189,23 +186,12 @@ void UKF::GenerateMeasurementNoiseCovarianceMatrices()
       0.0, std_laspy_ * std_laspy_;
 }
 
-void UKF::GenerateSigmaPoints()
-{
-  MatrixXd A = P_.llt().matrixL();
-  Xsigma_.col(0) = x_;
-  for (int i = 0; i < n_x_; ++i)
-  {
-    Xsigma_.col(i + 1) = x_ + sqrt(lambda_ + n_x_) * A.col(i);
-    Xsigma_.col(i + 1 + n_x_) = x_ - sqrt(lambda_ + n_x_) * A.col(i);
-  }
-}
-
 void UKF::GenerateAugmentedSigmaPoints()
 {
   // add augmented part to mean state
   x_aug_.head(n_x_) = x_;
-  x_aug_(n_x_) = std_a_;
-  x_aug_(n_x_ + 1) = std_yawdd_;
+  x_aug_(n_x_) = 0.0;
+  x_aug_(n_x_ + 1) = 0.0;
 
   // add augmented part to covariance matrix
   P_aug_.fill(0.0);
@@ -420,7 +406,7 @@ void UKF::ProcessMeasurement(const MeasurementPackage &meas_package)
     return;
   }
 
-  float dt = (meas_package.timestamp_ - time_us_) / 1000000.0;
+  double dt = (meas_package.timestamp_ - time_us_) / 1000000.0;
   time_us_ = meas_package.timestamp_;
   Prediction(dt);
 
@@ -450,7 +436,6 @@ void UKF::Prediction(const double &dt)
    * and the state covariance matrix.
    */
 
-  GenerateSigmaPoints();
   GenerateAugmentedSigmaPoints();
   PredictSigmaPoints(dt);
   PredictMeanState();

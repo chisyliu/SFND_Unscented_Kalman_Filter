@@ -184,9 +184,6 @@ public:
   // lidar measurement noise covariance matrix
   Eigen::MatrixXd R_lidar_;
 
-  // sigma point matrix
-  Eigen::MatrixXd Xsigma_;
-
   // augmented sigma point matrix
   Eigen::MatrixXd Xsigma_aug_;
 
