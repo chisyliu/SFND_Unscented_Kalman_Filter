@@ -11,6 +11,11 @@ UKF::UKF()
 {
   // Set UKF parameters
 
+  is_initialized_ = false;
+
+  // Start time
+  time_us_ = 0;
+
   // State dimension
   n_x_ = 5;
 
@@ -22,9 +27,6 @@ UKF::UKF()
 
   // Lidar measurement dimension
   n_z_lidar_ = 2;
-
-  // Sigma point spreading parameter
-  lambda_ = 3 - n_x_;
 
   // Augmented sigma point spreading parameter
   lambda_aug_ = 3 - n_aug_;
@@ -59,9 +61,6 @@ UKF::UKF()
   // initial predicted lidar measurement covariance matrix
   S_lidar_pred_ = MatrixXd(n_z_lidar_, n_z_lidar_);
 
-  // initial sigma point matrix
-  Xsigma_ = MatrixXd(n_x_, 2 * n_x_ + 1);
-
   // initial augmented sigma point matrix
   Xsigma_aug_ = MatrixXd(n_aug_, 2 * n_aug_ + 1);
 
@@ -75,10 +74,10 @@ UKF::UKF()
   Zsigma_lidar_ = MatrixXd(n_z_lidar_, Xsigma_pred_.cols());
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 30;
+  std_a_ = 2.0;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 30;
+  std_yawdd_ = 0.5;
 
   /**
    * DO NOT MODIFY measurement noise values below.
@@ -110,6 +109,56 @@ UKF::UKF()
 
 UKF::~UKF() {}
 
+void UKF::InitializeStates(const MeasurementPackage &meas_package)
+{
+
+  if (meas_package.sensor_type_ == MeasurementPackage::RADAR)
+  {
+    double rho = meas_package.raw_measurements_(0);
+    double phi = meas_package.raw_measurements_(1);
+    double rho_d = meas_package.raw_measurements_(2);
+
+    double x = rho * std::sin(phi);
+    double y = rho * std::cos(phi);
+
+    x_ << x, y, rho_d, phi, 0;
+
+    P_ << std_radr_ * std_radr_, 0.0, 0.0, 0.0, 0.0,
+        0.0, std_radr_ * std_radr_, 0.0, 0.0, 0.0,
+        0.0, 0.0, std_radrd_ * std_radrd_, 0.0, 0.0,
+        0.0, 0.0, 0.0, std_radphi_ * std_radphi_, 0.0,
+        0.0, 0.0, 0.0, 0.0, 1;
+  }
+  else
+  {
+    double pos_x = meas_package.raw_measurements_(0);
+    double pos_y = meas_package.raw_measurements_(1);
+    x_ << pos_x, pos_y, 0.0, 0.0, 0.0;
+
+    P_ << std_laspx_ * std_laspx_, 0.0, 0.0, 0.0, 0.0,
+        0.0, std_laspy_ * std_laspy_, 0.0, 0.0, 0.0,
+        0.0, 0.0, 1, 0.0, 0.0,
+        0.0, 0.0, 0.0, 1, 0.0,
+        0.0, 0.0, 0.0, 0.0, 1;
+  }
+
+  is_initialized_ = true;
+  time_us_ = meas_package.timestamp_;
+  std::cout << "Unscented Kalman Filter Initialized!" << std::endl;
+}
+
+void UKF::NormalizeAngle(double &angle)
+{
+  while (angle > M_PI)
+  {
+    angle -= 2.0 * M_PI;
+  }
+  while (angle < -M_PI)
+  {
+    angle += 2.0 * M_PI;
+  }
+}
+
 void UKF::GenerateWeights()
 {
   weights_ = VectorXd(2 * n_aug_ + 1);
@@ -124,33 +173,22 @@ void UKF::GenerateMeasurementNoiseCovarianceMatrices()
 {
   // Generate noise covariance matrix for Radar
   R_radar_ = MatrixXd(n_z_radar_, n_z_radar_);
-  R_radar_ << std_radr_ * std_radr_, 0, 0,
-      0, std_radphi_ * std_radphi_, 0,
-      0, 0, std_radrd_ * std_radrd_;
+  R_radar_ << std_radr_ * std_radr_, 0.0, 0.0,
+      0.0, std_radphi_ * std_radphi_, 0.0,
+      0.0, 0.0, std_radrd_ * std_radrd_;
 
   // Generate noise covariance matrix for Lidar
   R_lidar_ = MatrixXd(n_z_lidar_, n_z_lidar_);
-  R_lidar_ << std_laspx_ * std_laspx_, 0,
-      0, std_laspy_ * std_laspy_;
-}
-
-void UKF::GenerateSigmaPoints()
-{
-  MatrixXd A = P_.llt().matrixL();
-  Xsigma_.col(0) = x_;
-  for (int i = 0; i < n_x_; ++i)
-  {
-    Xsigma_.col(i + 1) = x_ + sqrt(lambda_ + n_x_) * A.col(i);
-    Xsigma_.col(i + 1 + n_x_) = x_ - sqrt(lambda_ + n_x_) * A.col(i);
-  }
+  R_lidar_ << std_laspx_ * std_laspx_, 0.0,
+      0.0, std_laspy_ * std_laspy_;
 }
 
 void UKF::GenerateAugmentedSigmaPoints()
 {
   // add augmented part to mean state
   x_aug_.head(n_x_) = x_;
-  x_aug_(n_x_) = std_a_;
-  x_aug_(n_x_ + 1) = std_yawdd_;
+  x_aug_(n_x_) = 0.0;
+  x_aug_(n_x_ + 1) = 0.0;
 
   // add augmented part to covariance matrix
   P_aug_.fill(0.0);
@@ -159,11 +197,12 @@ void UKF::GenerateAugmentedSigmaPoints()
   P_aug_(n_x_ + 1, n_x_ + 1) = std_yawdd_ * std_yawdd_;
 
   MatrixXd A_aug = P_aug_.llt().matrixL();
+  Xsigma_aug_.fill(0.0);
   Xsigma_aug_.col(0) = x_aug_;
   for (int i = 0; i < n_aug_; ++i)
   {
-    Xsigma_aug_.col(i + 1) = x_aug_ + sqrt(lambda_aug_ + n_aug_) * A_aug.col(i);
-    Xsigma_aug_.col(i + 1 + n_aug_) = x_aug_ - sqrt(lambda_aug_ + n_aug_) * A_aug.col(i);
+    Xsigma_aug_.col(i + 1) = x_aug_ + std::sqrt(lambda_aug_ + n_aug_) * A_aug.col(i);
+    Xsigma_aug_.col(i + 1 + n_aug_) = x_aug_ - std::sqrt(lambda_aug_ + n_aug_) * A_aug.col(i);
   }
 }
 
@@ -189,7 +228,7 @@ void UKF::PredictSigmaPoints(const double dt)
     double yaw_rate_pred;
 
     // Apply CTRV motion model
-    if (std::abs(yaw_rate) < epsilon) // if yaw_rate is 0
+    if (std::fabs(yaw_rate) < epsilon) // if yaw_rate is 0
     {
       pos_x_pred = pos_x + vel_abs * dt * std::cos(yaw_angle);
       pos_y_pred = pos_y + vel_abs * dt * std::sin(yaw_angle);
@@ -238,17 +277,7 @@ void UKF::PredictCovarianceMatrix()
   for (int i = 0; i < weights_.size(); i++)
   {
     x_diff = Xsigma_pred_.col(i) - x_;
-
-    // Normalize yaw angle
-    while (x_diff(3) > M_PI)
-    {
-      x_diff(3) -= 2. * M_PI;
-    }
-    while (x_diff(3) < -M_PI)
-    {
-      x_diff(3) += 2. * M_PI;
-    }
-
+    NormalizeAngle(x_diff(3));
     P_pred += weights_(i) * (x_diff) * (x_diff).transpose();
   }
   P_ = P_pred;
@@ -268,14 +297,14 @@ void UKF::TransformSigmaPointsToRadarSpace()
     double v_y = vel_abs * std::sin(yaw_angle);
 
     // Transform sigma point into measurement space
-    double tho = std::sqrt(pos_x * pos_x + pos_y * pos_y);
+    double rho = std::sqrt(pos_x * pos_x + pos_y * pos_y);
     double phi = std::atan2(pos_y, pos_x);
-    double tho_d = (pos_x * v_x + pos_y * v_y) / std::sqrt(pos_x * pos_x + pos_y * pos_y);
+    double rho_d = (pos_x * v_x + pos_y * v_y) / std::sqrt(pos_x * pos_x + pos_y * pos_y);
 
     // Write transformed sigma point
-    Zsigma_radar_(0, i) = tho;
+    Zsigma_radar_(0, i) = rho;
     Zsigma_radar_(1, i) = phi;
-    Zsigma_radar_(2, i) = tho_d;
+    Zsigma_radar_(2, i) = rho_d;
   }
 }
 
@@ -323,17 +352,7 @@ void UKF::PredictRadarCovariance()
   for (int i = 0; i < weights_.size(); i++)
   {
     z_diff = Zsigma_radar_.col(i) - z_radar_pred_;
-
-    // Normalize yaw angle
-    while (z_diff(1) > M_PI)
-    {
-      z_diff(1) -= 2. * M_PI;
-    }
-    while (z_diff(1) < -M_PI)
-    {
-      z_diff(1) += 2. * M_PI;
-    }
-
+    NormalizeAngle(z_diff(1));
     S_radar_pred += weights_(i) * (z_diff) * (z_diff).transpose();
   }
 
@@ -361,57 +380,6 @@ void UKF::PredictLidarCovariance()
   S_lidar_pred_ = S_lidar_pred;
 }
 
-void UKF::PredictRadarMeasurement()
-{
-  PredictRadarMeanState();
-  PredictRadarCovariance();
-}
-
-void UKF::PredictLidarMeasurement()
-{
-  PredictLidarMeanState();
-  PredictLidarCovariance();
-}
-
-void UKF::ProcessMeasurement(const MeasurementPackage &meas_package)
-{
-  /**
-   * TODO: Complete this function! Make sure you switch between lidar and radar
-   * measurements.
-   */
-  if (meas_package.sensor_type_ == MeasurementPackage::RADAR)
-  {
-    TransformSigmaPointsToRadarSpace();
-    PredictRadarMeasurement();
-    UpdateRadar(meas_package);
-  }
-  else if (meas_package.sensor_type_ == MeasurementPackage::LASER)
-  {
-    TransformSigmaPointsToLidarSpace();
-    PredictLidarMeasurement();
-    UpdateLidar(meas_package);
-  }
-  else
-  {
-    std::cout << "Unknown sensor type!" << std::endl;
-  }
-}
-
-void UKF::Prediction(double dt)
-{
-  /**
-   * TODO: Complete this function! Estimate the object's location.
-   * Modify the state vector, x_. Predict sigma points, the state,
-   * and the state covariance matrix.
-   */
-
-  GenerateSigmaPoints();
-  GenerateAugmentedSigmaPoints();
-  PredictSigmaPoints(dt);
-  PredictMeanState();
-  PredictCovarianceMatrix();
-}
-
 void UKF::UpdateRadar(const MeasurementPackage &meas_package)
 {
   /**
@@ -430,26 +398,10 @@ void UKF::UpdateRadar(const MeasurementPackage &meas_package)
   for (int i = 0; i < weights_.size(); i++)
   {
     z_diff = Zsigma_radar_.col(i) - z_radar_pred_;
-    // Normalize yaw angle
-    while (z_diff(1) > M_PI)
-    {
-      z_diff(1) -= 2. * M_PI;
-    }
-    while (z_diff(1) < -M_PI)
-    {
-      z_diff(1) += 2. * M_PI;
-    }
+    NormalizeAngle(z_diff(1));
 
     x_diff = Xsigma_pred_.col(i) - x_;
-    // Normalize yaw angle
-    while (x_diff(3) > M_PI)
-    {
-      x_diff(3) -= 2. * M_PI;
-    }
-    while (x_diff(3) < -M_PI)
-    {
-      x_diff(3) += 2. * M_PI;
-    }
+    NormalizeAngle(x_diff(3));
 
     T_XZ += weights_(i) * (x_diff) * (z_diff).transpose();
   }
@@ -459,6 +411,7 @@ void UKF::UpdateRadar(const MeasurementPackage &meas_package)
 
   // Update state
   z_diff = meas_package.raw_measurements_ - z_radar_pred_;
+  NormalizeAngle(z_diff(1));
   x_ += K * z_diff;
 
   // Update covariance matrix
@@ -495,4 +448,60 @@ void UKF::UpdateLidar(const MeasurementPackage &meas_package)
 
   // Update covariance matrix
   P_ -= K * S_lidar_pred_ * K.transpose();
+}
+
+void UKF::Predict(const double &dt)
+{
+  /**
+   * TODO: Complete this function! Estimate the object's location.
+   * Modify the state vector, x_. Predict sigma points, the state,
+   * and the state covariance matrix.
+   */
+
+  GenerateAugmentedSigmaPoints();
+  PredictSigmaPoints(dt);
+  PredictMeanState();
+  PredictCovarianceMatrix();
+}
+
+void UKF::Update(const MeasurementPackage &meas_package)
+{
+  if (meas_package.sensor_type_ == MeasurementPackage::RADAR)
+  {
+    TransformSigmaPointsToRadarSpace();
+    PredictRadarMeanState();
+    PredictRadarCovariance();
+    UpdateRadar(meas_package);
+  }
+  else if (meas_package.sensor_type_ == MeasurementPackage::LASER)
+  {
+    TransformSigmaPointsToLidarSpace();
+    PredictLidarMeanState();
+    PredictLidarCovariance();
+    UpdateLidar(meas_package);
+  }
+  else
+  {
+    std::cout << "Unknown sensor type!" << std::endl;
+  }
+}
+
+void UKF::Iterate(const MeasurementPackage &meas_package)
+{
+  /**
+   * TODO: Complete this function! Make sure you switch between lidar and radar
+   * measurements.
+   */
+  if (!is_initialized_)
+  {
+    InitializeStates(meas_package);
+    return;
+  }
+
+  double dt = (meas_package.timestamp_ - time_us_) / 1000000.0;
+  time_us_ = meas_package.timestamp_;
+
+  Predict(dt);
+
+  Update(meas_package);
 }
